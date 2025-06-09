@@ -357,9 +357,13 @@ extern const NX_SECURE_TLS_CRYPTO nx_crypto_tls_ciphers;
 
 #endif /*NX_WEB_HTTPS_ENABLE */
 
-/* Define the RAM disk memory for FileX demo.  */
+/* Define the RAM disk memory for demo.  */
+
+#define TOTAL_SECTORS   256
+#define SECTOR_SIZE     512
+
 static UCHAR media_memory[4096];
-static CHAR ram_disk_memory[4096];
+static CHAR  ram_disk_memory[TOTAL_SECTORS*SECTOR_SIZE];
 static FX_MEDIA ram_disk;
 
 /* HTTP server stack area. */
@@ -715,26 +719,48 @@ UINT            server_port;
 
 
     NX_PARAMETER_NOT_USED(thread_input);
+  
+    /* Format the RAM disk - the memory for the RAM disk was setup in
+       in the ram_disk_memory[TOTAL_SECTORS*SECTOR_SIZE] above. 
 
-    
-    fx_media_format(&ram_disk,
+       Important Note: The user must ensure there is enough RAM for the format
+                       specified.  Otherwise, memory corruption can occur. 
+    */
+    status =  fx_media_format(&ram_disk,
                     _fx_ram_driver,               // Driver entry
                     ram_disk_memory,              // RAM disk memory pointer
-                    media_memory,              // Media buffer pointer
-                    sizeof(media_memory),      // Media buffer size
+                    media_memory,                 // Media buffer pointer
+                    sizeof(media_memory),         // Media buffer size
                     "MY_RAM_DISK",                // Volume Name
                     1,                            // Number of FATs
                     32,                           // Directory Entries
                     0,                            // Hidden sectors
-                    256,                          // Total sectors
-                    512,                          // Sector size
+                    TOTAL_SECTORS,                // Total sectors
+                    SECTOR_SIZE,                  // Sector size
                     8,                            // Sectors per cluster
                     1,                            // Heads
                     1);                           // Sectors per track   
     
-    /* Open the RAM disk.  */
-    fx_media_open(&ram_disk, "RAM DISK", _fx_ram_driver, ram_disk_memory, media_memory, sizeof(media_memory)) ;
+    /* Determine if the RAM disk format was successful.  */
+    if (status != FX_SUCCESS)
+    {
+        /* Error formatting the RAM disk.  */
+        printf("HTTPS RAM disk format failed, error: %x\n", status);
+        return; 
+    }
 
+    /* Open the RAM disk.  */
+    status =  fx_media_open(&ram_disk, "RAM DISK", _fx_ram_driver, ram_disk_memory, media_memory, sizeof(media_memory)) ;
+
+    /* Determine if the RAM disk open was successful.  */
+    if (status != FX_SUCCESS)
+    {
+        /* Error formatting the RAM disk.  */
+        printf("HTTPS RAM disk open failed, error: %x\n", status);
+        return; 
+    }
+
+    /* Create the test file.  */
     fx_file_create(&ram_disk, "TEST.TXT");
 
     /* Give NetX a chance to initialize the system. */
